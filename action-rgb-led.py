@@ -62,6 +62,8 @@ def rainbow():
 speaking_bool = False
 def speaking(client, userdata, msg):
     global speaking_bool
+    if speaking_bool:
+        return
     speaking_bool = True
     t = Thread(target=rainbow)
     t.start()
