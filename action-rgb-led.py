@@ -3,13 +3,31 @@
 import apa102
 import time
 import paho.mqtt.client as mqtt
+import RPi.GPIO as GPIO
 from threading import Thread
 
 led = apa102.APA102(num_led=3)
 
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(12, GPIO.OUT)
+GPIO.setup(13, GPIO.OUT)
+
+gpio_blue = GPIO.PWM(12, 100)
+gpio_red = GPIO.PWM(13, 100)
+gpio_blue.start(0)
+gpio_red.start(0)
+
 def set_led(color):
     led.set_pixel(0, color[0], color[1], color[2])
     led.show()
+
+def set_front_led(led, cycle):
+    c = cycle * 0.3
+    if led == "red" or led == "both":
+        gpio_red.ChangeDutyCycle(c)
+    if led == "blue" or led == "both":
+        gpio_blue.ChangeDutyCycle(c)
+
 
 def on_connect(client, userdata, flags, rc):
     print("Connected")
@@ -22,13 +40,17 @@ def on_message(client, userdata, msg):
 
 def hotword_on(client, userdata, msg):
     for i in range(51):
-        set_led([0,255-51*5,0])
+        cycle = 255-51*5
+        set_led([0,0,cycle])
+        set_front_led("blue", cycle)
         time.sleep(0.005)
 
 def hotword_off(client, userdata, msg):
     for times in range(3):
         for i in range(51):
-            set_led([0,i*5,0])
+            cycle = i*5
+            set_led([0,0,cycle])
+            set_front_led("blue", cycle)
             time.sleep(0.004)
         set_led([0,0,0])
     set_led([0,255,0])
@@ -49,15 +71,18 @@ def rainbow():
         if(r >= 255 or r <= 0):
             rdir = rdir * -1
         r += rdir * 5
+        set_front_led("red", r)
         if(g >= 255 or g <= 0):
             gdir = gdir * -1
         g += gdir * 5
         if(b >= 255 or b <= 0):
             bdir = bdir * -1
         b += bdir *5
+        set_front_led("blue", b)
         time.sleep(0.015)
     print("Rainbow ended")
     set_led([0,0,0])
+    set_front_led("both", 0)
 
 speaking_bool = False
 def speaking(client, userdata, msg):
