@@ -3,6 +3,7 @@ import apa102
 import time
 import paho.mqtt.client as mqtt
 import RPi.GPIO as GPIO
+import json
 from threading import Thread
 
 led = apa102.APA102(num_led=3)
@@ -171,6 +172,18 @@ def speaking_stop(client, userdata, msg):
     global speaking_bool
     speaking_bool = False
 
+def erinnerung (client, userdata, msg):
+    payload = msg.payload.decode("utf-8")
+    if payload == "snips-master":
+        client.publish("hermes/tts/say", "lord")
+        for i in range(3):
+            cycle = 255
+            while cycle > 0:
+                set_front_led("red", cycle)
+                cycle -= 5
+                time.sleep(0.01)
+
+
 client = mqtt.Client()
 client.on_connect = on_connect
 client.message_callback_add("hermes/hotword/toggleOn", hotword_on)
@@ -179,6 +192,7 @@ client.message_callback_add("hermes/tts/say", speaking)
 client.message_callback_add("hermes/tts/sayFinished", speaking_stop)
 client.message_callback_add("snips/led/an", led_an)
 client.message_callback_add("snips/led/aus", led_aus)
+client.message_callback_add("menu/erinnerung", erinnerung)
 client.connect("localhost", 1883, 60)
 set_led([0,0,0])
 set_front_led("red", 50)
