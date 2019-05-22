@@ -38,6 +38,7 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe("hermes/hotword/#")
     client.subscribe("hermes/tts/#")
     client.subscribe("snips/led/#")
+    client.subscribe("menu/erinnerung")
     print("Callbacks added")
 
 def on_message(client, userdata, msg):
