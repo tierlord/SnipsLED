@@ -14,13 +14,14 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(12, GPIO.OUT)
 GPIO.setup(13, GPIO.OUT)
 
-gpio_blue = GPIO.PWM(12, 100)
-gpio_red = GPIO.PWM(13, 100)
+gpio_blue = GPIO.PWM(12, 120)
+gpio_red = GPIO.PWM(13, 120)
 gpio_blue.start(0)
 gpio_red.start(0)
 
-def set_led(color):
-    led.set_pixel(0, color[0], color[1], color[2])
+def set_led(color, pix=[0]):
+    for i in range(len(pix)):
+        led.set_pixel(pix[i], color[0], color[1], color[2])
     led.show()
 
 def set_front_led(led, cycle):
@@ -103,11 +104,12 @@ def led_an_thread(client, userdata, msg):
         time.sleep(0.1) # wait
     stop_thread = False
     thread_running = True
-    c = [0,255,0]
+    c = [0,0,0]
     while c[0] < 255 and not stop_thread:
-        set_led(c)
+        set_led(c, [1,2])
         c[0] += 5
-        c[2] += 5
+        c[1] += 4
+        c[2] += 3
         time.sleep(0.01)
     
     try:
@@ -119,7 +121,7 @@ def led_an_thread(client, userdata, msg):
                 if time.time() - start_time < secs - 30:
                     time.sleep(1)
                 else:
-                    set_led(c)
+                    set_led(c, [1,2])
                     c[0] -= 1
                     if c[1] >= 2:
                         c[1] -= 2
@@ -127,7 +129,7 @@ def led_an_thread(client, userdata, msg):
                         c[2] -= 2
                     time.sleep(0.115)
             c = [0,0,0]
-            set_led(c)
+            set_led(c,[1,2])
     except:
         pass
     thread_running = False
@@ -142,12 +144,13 @@ def led_aus_thread(client, userdata, msg):
         time.sleep(0.1) # wait
     stop_thread = False
     thread_running = True
-    c = [255,255,255]
-    while c[0] > 0 and not stop_thread:
-        set_led(c)
+    c = [255,204,153]
+    while c[2] > 0 and not stop_thread:
+        set_led(c, [1,2])
         for i in range(3):
             c[i] -= 1
         time.sleep(0.03)
+    set_led([0,0,0], [1,2])
     thread_running = False
 
 def led_an(client, userdata, msg):
@@ -181,5 +184,5 @@ client.message_callback_add("snips/led/an", led_an)
 client.message_callback_add("snips/led/aus", led_aus)
 client.connect("localhost", 1883, 60)
 set_led([0,0,0])
-set_front_led("red", 50)
+set_front_led("red", 20)
 client.loop_forever()
