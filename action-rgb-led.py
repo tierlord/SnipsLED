@@ -178,14 +178,17 @@ def speaking_stop(client, userdata, msg):
 
 def erinnerung (client, userdata, msg):
     payload = msg.payload.decode("utf-8")
-    if payload == "snips-master":
-        client.publish("hermes/tts/say", "lord")
+    if "snips-master" in payload:
         for i in range(3):
             cycle = 255
             while cycle > 0:
                 set_front_led("red", cycle)
                 cycle -= 5
                 time.sleep(0.01)
+        set_front_led("red", 0)
+        time.sleep(2)
+        msg = '{ "text" : "Bitte denke daran, dein Essen zu bestellen!", "lang" : "de", "siteId" : "default"}'
+        client.publish("hermes/tts/say", msg)
 
 
 client = mqtt.Client()
