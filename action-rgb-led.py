@@ -6,6 +6,12 @@ import RPi.GPIO as GPIO
 import json
 from threading import Thread
 
+#########################################################################
+# Dieses Skript hoert auf MQTT Nachrichten, die von Snips gesendet werden,
+# und steuert damit die LEDs des Sprachassistenten
+# Es soll automatisch beim Boot ausgefuehrt werden
+#########################################################################
+
 led = apa102.APA102(num_led=3)
 hotword_active = True
 stop_thread = False
@@ -20,11 +26,16 @@ gpio_red = GPIO.PWM(13, 120)
 gpio_blue.start(0)
 gpio_red.start(0)
 
+# mit dieser methode werden die LEDs auf dem ReSpeaker gesteuert
+# color erwartet eine farbe in form einer liste
+# pink ist z.B. [255,0,255]
+# pix nimmt eine Liste der Pixel entgegen, die geaendert werden sollen (0-2)
 def set_led(color, pix=[0]):
     for i in range(len(pix)):
         led.set_pixel(pix[i], color[0], color[1], color[2])
     led.show()
 
+# mit dieser methode wird die LED gesteuert, die an GPIO 12 und 13 angeschlossen ist
 def set_front_led(led, cycle):
     c = cycle * 0.3
     if led == "red" or led == "both":
@@ -32,7 +43,7 @@ def set_front_led(led, cycle):
     if led == "blue" or led == "both":
         gpio_blue.ChangeDutyCycle(c)
 
-
+# callback der aufgerufen wird, wenn der mqtt client verbunden ist
 def on_connect(client, userdata, flags, rc):
     print("Connected")
     client.subscribe("hermes/hotword/#")
@@ -41,9 +52,11 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe("menu/erinnerung")
     print("Callbacks added")
 
+# gibt jede message zu debuggingzwecken aus
 def on_message(client, userdata, msg):
     print (msg.payload)
 
+# wird aufgerufen, wenn der assistent auf das hotword wartet
 def hotword_on(client, userdata, msg):
     for i in range(51):
         cycle = 255-51*5
@@ -54,6 +67,7 @@ def hotword_on(client, userdata, msg):
     hotword_active = True
     print("Hotword on")
 
+# wird aufgerufen, wenn der assistent beginnt zuzuhoeren
 def hotword_off(client, userdata, msg):
     for times in range(2):
         for i in range(51):
@@ -67,6 +81,7 @@ def hotword_off(client, userdata, msg):
     hotword_active = False
     print("Hotword off")
 
+# kontinuierlicher farblauf waehrend assistent spricht
 def rainbow():
     global speaking_bool
     start_time = time.time()
@@ -114,6 +129,9 @@ def led_an_thread(client, userdata, msg):
         c[2] += 3
         time.sleep(0.01)
     
+    # hier wird die payload decodiert
+    # wenn sich ein integer darin befindet, wird dieser
+    # als timer verwendet um danach die LEDs wieder abzuschalten
     try:
         load = msg.payload.decode("utf-8")
         if load != "":
@@ -155,15 +173,18 @@ def led_aus_thread(client, userdata, msg):
     set_led([0,0,0], [1,2])
     thread_running = False
 
+# startet den thread, der fuer das fading der LEDs dient
 def led_an(client, userdata, msg):
     t = Thread(target=led_an_thread, args=(client,userdata,msg,))
     t.start()
 
+# startet den thread, der LEDs ausfaden laesst
 def led_aus(client, userdata, msg):
     t = Thread(target=led_aus_thread, args=(client,userdata,msg,))
     t.start()
 
 speaking_bool = False
+# wird aufgerufen, wenn das TTS beginnt zu sprechen
 def speaking(client, userdata, msg):
     global speaking_bool
     if speaking_bool:
@@ -172,10 +193,12 @@ def speaking(client, userdata, msg):
     t = Thread(target=rainbow)
     t.start()
 
+# wird aufgerufen, wenn das TTS aufhört zu sprechen
 def speaking_stop(client, userdata, msg):
     global speaking_bool
     speaking_bool = False
 
+# wenn menu/erinnerung eintrifft, erinnert dies den nutzer an die Essensbestellung
 def erinnerung (client, userdata, msg):
     payload = msg.payload.decode("utf-8")
     if "snips-master" in payload:
@@ -190,9 +213,10 @@ def erinnerung (client, userdata, msg):
         msg = '{ "text" : "Bitte denke daran, dein Essen zu bestellen!", "lang" : "de", "siteId" : "default"}'
         client.publish("hermes/tts/say", msg)
 
-
 client = mqtt.Client()
 client.on_connect = on_connect
+
+# diese callbacks werden aufgerufen, wenn nachrichten auf diesem topic eingehen
 client.message_callback_add("hermes/hotword/toggleOn", hotword_on)
 client.message_callback_add("hermes/hotword/toggleOff", hotword_off)
 client.message_callback_add("hermes/tts/say", speaking)
@@ -201,6 +225,10 @@ client.message_callback_add("snips/led/an", led_an)
 client.message_callback_add("snips/led/aus", led_aus)
 client.message_callback_add("menu/erinnerung", erinnerung)
 client.connect("localhost", 1883, 60)
+
+# LEDs werden initial gesetzt
 set_led([0,0,0])
 set_front_led("red", 20)
+
+# Der MQTT client hoert dauerhaft auf nachrichten
 client.loop_forever()
